@@ -44,6 +44,16 @@ export interface ISpreadsheetRepository {
   }): Promise<SpreadsheetRowRecord>;
   delete(id: string, requesterId: string): Promise<void>;
 
+  /** Append an empty row to the end of a sheet. */
+  addRow(input: { spreadsheetId: string; requesterId: string }): Promise<SpreadsheetRowRecord>;
+
+  /** Append a new column to a sheet. Existing rows implicitly have null for it. */
+  addColumn(input: {
+    spreadsheetId: string;
+    requesterId: string;
+    columnName: string;
+  }): Promise<SpreadsheetRecord>;
+
   // ── Admin-only operations ──
   /** Total number of spreadsheets in the system. */
   countAll(): Promise<number>;

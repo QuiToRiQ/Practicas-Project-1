@@ -75,6 +75,23 @@ export function SpreadsheetGrid({ sheetId }: { sheetId: string }) {
   const updateCell = useMutation({
     mutationFn: (input: { rowId: string; column: string; value: CellValue }) =>
       sheetsApi.updateCell(sheetId, input.rowId, input.column, input.value),
+    // Optimistic update: paint the new value immediately so the cell doesn't
+    // flicker back to its old text while the PATCH is in flight. The server's
+    // canonical response (which may have type-coerced the value) replaces it
+    // on success; on error we roll back to the snapshot.
+    onMutate: ({ rowId, column, value }) => {
+      let snapshot: SpreadsheetRow | undefined;
+      setBuffer((prev) => {
+        const next = prev.slice();
+        const idx = next.findIndex((r) => r?.id === rowId);
+        if (idx >= 0 && next[idx]) {
+          snapshot = next[idx];
+          next[idx] = { ...next[idx]!, data: { ...next[idx]!.data, [column]: value } };
+        }
+        return next;
+      });
+      return { snapshot };
+    },
     onSuccess: (updated) => {
       setEditError(null);
       setBuffer((prev) => {
@@ -84,7 +101,19 @@ export function SpreadsheetGrid({ sheetId }: { sheetId: string }) {
         return next;
       });
     },
-    onError: (err: Error) => setEditError(err.message),
+    onError: (err: Error, _input, context) => {
+      setEditError(err.message);
+      // Roll back to the pre-mutation snapshot if we have one.
+      if (context?.snapshot) {
+        const snap = context.snapshot;
+        setBuffer((prev) => {
+          const next = prev.slice();
+          const idx = next.findIndex((r) => r?.id === snap.id);
+          if (idx >= 0) next[idx] = snap;
+          return next;
+        });
+      }
+    },
   });
 
   const colWidths = useMemo(() => columns.map(() => 180), [columns]);

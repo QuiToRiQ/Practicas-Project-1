@@ -82,6 +82,18 @@ export class SpreadsheetsService {
     await this.repo.delete(id, requesterId);
   }
 
+  async addRow(input: { spreadsheetId: string; requesterId: string }): Promise<SpreadsheetRowRecord> {
+    return this.repo.addRow(input);
+  }
+
+  async addColumn(input: {
+    spreadsheetId: string;
+    requesterId: string;
+    columnName: string;
+  }): Promise<SpreadsheetRecord> {
+    return this.repo.addColumn(input);
+  }
+
   async merge(ownerId: string, dto: MergeDto): Promise<SpreadsheetRecord> {
     const sources: SpreadsheetRecord[] = [];
     for (const src of dto.sources) {

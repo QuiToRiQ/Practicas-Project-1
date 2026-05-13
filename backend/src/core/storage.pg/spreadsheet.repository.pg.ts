@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import {
@@ -118,6 +124,51 @@ export class SpreadsheetPgRepository implements ISpreadsheetRepository {
       await mgr.delete(SpreadsheetRowEntity, { spreadsheetId: sheet.id });
       await mgr.delete(SpreadsheetEntity, { id: sheet.id });
     });
+  }
+
+  async addRow(input: { spreadsheetId: string; requesterId: string }): Promise<SpreadsheetRowRecord> {
+    const sheet = await this.loadForRequester(input.spreadsheetId, input.requesterId);
+    return this.ds.transaction(async (mgr) => {
+      // Pick rowIndex = max + 1 so order is preserved even if older rows
+      // have non-contiguous indices (e.g. after a future reorder feature).
+      const max = await mgr
+        .createQueryBuilder(SpreadsheetRowEntity, 'r')
+        .select('COALESCE(MAX(r.row_index), -1)', 'max')
+        .where('r.spreadsheet_id = :id', { id: sheet.id })
+        .getRawOne<{ max: string | number }>();
+      const nextIndex = Number(max?.max ?? -1) + 1;
+      const saved = await mgr.save(
+        mgr.create(SpreadsheetRowEntity, {
+          spreadsheetId: sheet.id,
+          rowIndex: nextIndex,
+          data: {},
+        }),
+      );
+      await mgr.update(SpreadsheetEntity, { id: sheet.id }, { rowCount: sheet.rowCount + 1 });
+      return {
+        id: saved.id,
+        spreadsheetId: saved.spreadsheetId,
+        rowIndex: saved.rowIndex,
+        data: saved.data,
+      };
+    });
+  }
+
+  async addColumn(input: {
+    spreadsheetId: string;
+    requesterId: string;
+    columnName: string;
+  }): Promise<SpreadsheetRecord> {
+    const name = input.columnName.trim();
+    if (!name) throw new BadRequestException('column name cannot be empty');
+    if (name.length > 120) throw new BadRequestException('column name too long');
+    const sheet = await this.loadForRequester(input.spreadsheetId, input.requesterId);
+    if (sheet.columns.includes(name)) {
+      throw new ConflictException(`column "${name}" already exists`);
+    }
+    sheet.columns = [...sheet.columns, name];
+    const saved = await this.sheets.save(sheet);
+    return toRecord(saved);
   }
 
   async countAll(): Promise<number> {

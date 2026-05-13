@@ -64,3 +64,7 @@ export class ListRowsQueryDto {
 export class ExportQueryDto {
   @IsOptional() @IsEnum(['xlsx', 'csv'] as const) format?: 'xlsx' | 'csv';
 }
+
+export class AddColumnDto {
+  @IsString() @MaxLength(120) name!: string;
+}

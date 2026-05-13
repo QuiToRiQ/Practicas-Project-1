@@ -1,15 +1,46 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { sheetsApi } from '../api/spreadsheets';
+import { ApiError } from '../api/client';
 import { SpreadsheetGrid } from '../components/SpreadsheetGrid';
 
 export function SheetPage() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
+  const qc = useQueryClient();
+  const [structuralError, setStructuralError] = useState<string | null>(null);
+  const [showColInput, setShowColInput] = useState(false);
+  const [newColName, setNewColName] = useState('');
+
   const sheetQ = useQuery({
     queryKey: ['sheet', id],
     queryFn: () => sheetsApi.get(id!),
     enabled: !!id,
+  });
+
+  function invalidateSheet() {
+    if (!id) return;
+    void qc.invalidateQueries({ queryKey: ['sheet', id] });
+  }
+
+  const addRow = useMutation({
+    mutationFn: () => sheetsApi.addRow(id!),
+    onSuccess: () => { setStructuralError(null); invalidateSheet(); },
+    onError: (e: Error) => setStructuralError(e.message),
+  });
+
+  const addColumn = useMutation({
+    mutationFn: (name: string) => sheetsApi.addColumn(id!, name),
+    onSuccess: () => {
+      setStructuralError(null);
+      setShowColInput(false);
+      setNewColName('');
+      invalidateSheet();
+    },
+    onError: (e: Error) => setStructuralError(
+      e instanceof ApiError ? e.message : String(e),
+    ),
   });
 
   async function download(format: 'xlsx' | 'csv') {
@@ -39,6 +70,20 @@ export function SheetPage() {
           </span>
         </div>
         <div className="flex gap-2">
+          <button
+            className="btn-ghost"
+            disabled={addRow.isPending}
+            onClick={() => addRow.mutate()}
+          >
+            {addRow.isPending ? 'Adding…' : '+ Row'}
+          </button>
+          <button
+            className="btn-ghost"
+            disabled={addColumn.isPending}
+            onClick={() => { setShowColInput(true); setNewColName(''); }}
+          >
+            + Column
+          </button>
           <button className="btn-ghost" onClick={() => download('csv')}>Export CSV</button>
           <button className="btn-primary" onClick={() => download('xlsx')}>Export XLSX</button>
           <button
@@ -53,7 +98,57 @@ export function SheetPage() {
           </button>
         </div>
       </div>
-      <SpreadsheetGrid sheetId={id} />
+
+      {showColInput && (
+        <form
+          className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900/50 px-5 py-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const name = newColName.trim();
+            if (!name) return;
+            addColumn.mutate(name);
+          }}
+        >
+          <span className="text-xs text-zinc-400">New column name:</span>
+          <input
+            autoFocus
+            className="input max-w-xs"
+            placeholder="e.g. Phone, Grade, Notes"
+            value={newColName}
+            maxLength={120}
+            onChange={(e) => setNewColName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowColInput(false); }}
+          />
+          <button
+            type="submit" className="btn-primary"
+            disabled={!newColName.trim() || addColumn.isPending}
+          >
+            {addColumn.isPending ? 'Adding…' : 'Add'}
+          </button>
+          <button
+            type="button" className="btn-ghost"
+            onClick={() => { setShowColInput(false); setNewColName(''); }}
+          >
+            Cancel
+          </button>
+        </form>
+      )}
+
+      {structuralError && (
+        <div className="flex items-center justify-between bg-rose-950/60 px-5 py-2 text-sm text-rose-200">
+          <span>{structuralError}</span>
+          <button className="btn-ghost text-rose-200" onClick={() => setStructuralError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Key includes column/row counts so the grid remounts when the sheet's
+          structure changes — fastest way to flush its internal buffer. */}
+      <SpreadsheetGrid
+        key={`${sheetQ.data.columns.join('|')}-${sheetQ.data.rowCount}`}
+        sheetId={id}
+      />
     </div>
   );
 }

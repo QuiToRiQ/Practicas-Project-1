@@ -68,6 +68,15 @@ export const sheetsApi = {
       body: { column, value },
     }),
 
+  addRow: (id: string) =>
+    request<SpreadsheetRow>(`/spreadsheets/${id}/rows`, { method: 'POST' }),
+
+  addColumn: (id: string, name: string) =>
+    request<Spreadsheet>(`/spreadsheets/${id}/columns`, {
+      method: 'POST',
+      body: { name },
+    }),
+
   remove: (id: string) => request<void>(`/spreadsheets/${id}`, { method: 'DELETE' }),
 
   download: (id: string, format: 'xlsx' | 'csv') =>

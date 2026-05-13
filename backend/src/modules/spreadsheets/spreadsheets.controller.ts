@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RequirePermissions } from '../permissions/permissions.decorator';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import {
+  AddColumnDto,
   ExportQueryDto,
   ListRowsQueryDto,
   MergeDto,
@@ -91,6 +92,29 @@ export class SpreadsheetsController {
       requesterId: user.id,
       offset: query.offset ?? 0,
       limit: Math.min(query.limit ?? 100, 500),
+    });
+  }
+
+  @RequirePermissions('sheets:write')
+  @Post(':id/rows')
+  addRow(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.sheets.addRow({ spreadsheetId: id, requesterId: user.id });
+  }
+
+  @RequirePermissions('sheets:write')
+  @Post(':id/columns')
+  addColumn(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AddColumnDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.sheets.addColumn({
+      spreadsheetId: id,
+      requesterId: user.id,
+      columnName: dto.name,
     });
   }
 
