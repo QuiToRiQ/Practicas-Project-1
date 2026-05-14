@@ -2,7 +2,7 @@
 
 A self-hostable tool for tutors to manage students during *practicas* (internships / practical training). Upload Excel/CSV files, merge them, edit cells inline in a fast virtualised grid, export the result.
 
-![Alt text](project-structure.png)
+![Alt text](structure.png)
 
 ## Features
 
