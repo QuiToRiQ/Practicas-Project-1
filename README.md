@@ -2,18 +2,7 @@
 
 A self-hostable tool for tutors to manage students during *practicas* (internships / practical training). Upload Excel/CSV files, merge them, edit cells inline in a fast virtualised grid, export the result.
 
-```
-┌─────────────────────┐   HTTPS   ┌─────────────────────┐   TCP    ┌─────────────────────┐
-│  React + Vite SPA   │ ────────> │  NestJS API         │ ──────>  │  Postgres 16        │
-│  (nginx, port 80)   │   cookie  │  (Node 20, :3001)   │   pg     │  (port 5432, vol.)  │
-└─────────────────────┘   auth    └─────────────────────┘          └─────────────────────┘
-                                        │
-                                        ▼
-                              ┌──────────────────────┐
-                              │ File storage adapter │
-                              │ local / Azure / GCS  │
-                              └──────────────────────┘
-```
+![Alt text](project-structure.png)
 
 ## Features
 
