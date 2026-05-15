@@ -13,6 +13,7 @@ import { PermissionPgRepository } from '../storage.pg/permission.repository.pg';
 import { RolePgRepository } from '../storage.pg/role.repository.pg';
 import { SpreadsheetPgRepository } from '../storage.pg/spreadsheet.repository.pg';
 import { LocalFileStorage } from '../storage.local/file.storage.local';
+import { Init1779000000000 } from '../storage.pg/migrations/1779000000000-Init';
 import {
   FILE_STORAGE,
   PERMISSION_REPOSITORY,
@@ -54,9 +55,9 @@ export class StorageModule {
             password: cfg.getOrThrow<string>('DB_PASSWORD'),
             database: cfg.getOrThrow<string>('DB_NAME'),
             entities,
-            // For v1 we let TypeORM sync the schema; replace with migrations
-            // once the data model stabilises.
-            synchronize: cfg.get<string>('NODE_ENV') !== 'production',
+            migrations: [Init1779000000000],
+            migrationsRun: true,
+            synchronize: false,
             autoLoadEntities: false,
             logging: false,
           }),

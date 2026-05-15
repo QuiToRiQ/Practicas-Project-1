@@ -141,6 +141,7 @@ In `backend/src/core/storage.pg/`:
 - Add `entities/tag.entity.ts` (TypeORM entity, FK to sheet)
 - Add `tag.repository.pg.ts` implementing `ITagRepository`
 - Register the entity + adapter in `core/storage/storage.module.ts`
+- Generate the migration and append it to the `migrations: [...]` array (see § 7.3)
 
 ### Step 4 — Permission
 
@@ -267,19 +268,23 @@ If something's wrong: `git checkout v0.1.0 && docker compose up -d --build` roll
 
 ### 7.3 Database schema changes
 
-Right now `synchronize: true` in dev means TypeORM mutates the DB to match your entities. **You will outgrow this**. The transition:
+Schema is migration-managed: `synchronize: false`, `migrationsRun: true` in `backend/src/core/storage/storage.module.ts`. The backend applies any pending migrations automatically on every boot, so `docker compose up -d --build` is the whole deploy step — no separate `migration:run` command.
 
-1. Generate the initial migration from the current entity graph:
+When you change an entity (add a column, new entity, etc.):
+
+1. Generate the migration from inside the backend container:
    ```bash
-   cd backend
-   # Add a DataSource file (one-time)
-   npx typeorm migration:generate -d src/datasource.ts src/migrations/Initial
+   docker compose exec backend npm run migration:generate -- src/core/storage.pg/migrations/<DescriptiveName>
    ```
-2. Flip `synchronize: false` for `production` (already gated on `NODE_ENV`).
-3. From then on, every schema change is a migration committed alongside the entity change.
-4. The deploy command becomes `docker compose run --rm backend npm run migration:run` *before* `docker compose up -d --build`.
+   TypeORM diffs your entities against the live DB and writes a `<timestamp>-<DescriptiveName>.ts` file.
+2. Open the generated file and **append the new class to the `migrations: [...]` array** in `backend/src/core/storage/storage.module.ts`. The runtime uses an explicit list (not a glob), so a missing entry means the migration never runs.
+3. Commit both the migration file and the `storage.module.ts` change together with the entity change.
+4. Deploy as usual — `docker compose up -d --build`. Watch the logs to confirm the migration applied:
+   ```bash
+   docker compose logs backend | grep -i migration
+   ```
 
-Treat this as a milestone *before* you have real student data on the server.
+Roll back: `docker compose exec backend npm run migration:revert` reverses the most recently applied migration. For anything irreversible (a `DROP COLUMN`), `make backup` first.
 
 ---
 

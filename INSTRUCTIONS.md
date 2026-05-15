@@ -337,7 +337,7 @@ git pull
 docker compose up -d --build
 ```
 
-If the schema changed, the backend will run TypeORM `synchronize` automatically in dev mode. **In production we recommend running migrations explicitly** — see DEVELOPMENT.md › "Moving from synchronize to migrations".
+If the schema changed, the backend applies any pending TypeORM migrations automatically on boot (`migrationsRun: true`). Tail `docker compose logs backend | grep -i migration` to confirm. See DEVELOPMENT.md › "Working with migrations" for the developer workflow.
 
 ---
 
@@ -418,7 +418,7 @@ The backend won't even start with weak secrets. Re-run the `openssl rand` comman
 
 ### "relation 'users' does not exist" / first request times out
 
-Postgres started, but TypeORM hasn't created the schema yet. Wait ~10 seconds after `docker compose up`. If it persists:
+Postgres started, but the TypeORM migration hasn't run yet (or the new entity wasn't covered by an existing migration). Wait ~10 seconds after `docker compose up`. If it persists:
 
 ```bash
 docker compose logs backend | grep -i error
